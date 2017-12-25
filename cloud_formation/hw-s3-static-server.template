@@ -1,0 +1,30 @@
+{
+  "AWSTemplateFormatVersion": "2010-09-09",
+  "Parameters": {
+    "S3BucketSite": {
+      "Type": "String",
+      "Default": "naumenko-hm-site"
+    }
+  },
+  "Resources": {
+    "BucketPolicy": {
+      "Type": "AWS::S3::BucketPolicy",
+      "Properties": {
+        "Bucket" : "${S3BucketSite}",
+        "PolicyDocument": {
+          "Statement": [
+            {
+              "Effect": "Allow",
+              "Principal": "arn:aws:ec2::*",
+              "Action": "s3:*",
+              "Resource": [
+                {"Fn::Sub": "arn:aws:s3:::${S3BucketSite}"},
+                {"Fn::Sub": "arn:aws:s3:::${S3BucketSite}/*"}
+              ]
+            }
+          ]
+        }
+      }
+    }
+  }
+}

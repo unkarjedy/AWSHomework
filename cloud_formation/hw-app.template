@@ -1,0 +1,115 @@
+{
+    "AWSTemplateFormatVersion": "2010-09-09",
+    "Parameters": {      
+      "InstanceType": {
+        "Type": "String",
+        "Description": "Type of instance",
+        "Default": "t2.micro"
+      },
+      "AmiId": {
+        "Type": "String",
+        "Description": "ID of AMI",
+		"Default" : "ami-55ef662f"
+      },
+      "SSHKey": {
+        "Type": "String",
+        "Description": "SSH key name",
+        "Default": "HomeworkKeyPair"
+      },
+      "S3BucketNameCf": {
+        "Type": "String",
+        "Default": "naumenko-hm-cf"
+      },
+      "S3BucketNameSite": {
+        "Type": "String",
+        "Default": "naumenko-hm-site"
+      },
+      "S3BucketNameImages": {
+        "Type": "String",
+        "Default": "naumenko-hm-images"
+      },
+      "Prefix": {
+        "Type": "String",
+        "Default": "hw"
+      }
+    },
+
+    "Resources": {
+
+      "S3StaticServerPolicy": {
+        "Type" : "AWS::CloudFormation::Stack",
+        "Properties" : {
+          "Tags" : [
+            {"Key":"StackType", "Value":"VPC"}
+          ],
+          "TemplateURL": {"Fn::Sub":"https://s3.amazonaws.com/${S3BucketNameCf}/${Prefix}-s3-static-server.template"},
+          "TimeoutInMinutes" : "15"
+        }
+      },
+
+      "VPC": {
+        "Type" : "AWS::CloudFormation::Stack",
+        "Properties" : {
+          "TemplateURL": {"Fn::Sub":"https://s3.amazonaws.com/${S3BucketNameCf}/${Prefix}-vpc.template"},
+          "TimeoutInMinutes" : "15",
+          "Parameters": {
+            "S3BucketSite": {"Ref":"S3BucketNameSite"}
+          }
+        }
+      },
+
+      "IAMStack": {
+        "Type" : "AWS::CloudFormation::Stack",
+        "Properties" : {
+          "Tags" : [
+            {"Key":"StackType", "Value":"IAM"}
+          ],
+          "TemplateURL": {"Fn::Sub":"https://s3.amazonaws.com/${S3BucketNameCf}/${Prefix}-iam.template"},
+          "TimeoutInMinutes" : "15",
+          "Parameters": {
+            "S3BucketSite": {"Ref":"S3BucketNameSite"},
+            "S3BucketImages": {"Ref":"S3BucketNameImages"}
+          }
+        }
+      },
+
+      "EC2Application": {
+        "Type" : "AWS::CloudFormation::Stack",
+        "Properties" : {
+          "Tags" : [
+            {"Key":"StackType", "Value":"EC2"}
+          ],
+          "TemplateURL": {"Fn::Sub":"https://s3.amazonaws.com/${S3BucketNameCf}/${Prefix}-ec2.template"},
+          "TimeoutInMinutes" : "15",
+          "Parameters": {
+            "VpcId": {"Fn::GetAtt":["VPC","Outputs.VpcId"]},
+            "SubnetIds": {"Fn::Join" : [",", [
+                {"Fn::GetAtt":["VPC","Outputs.SubnetId"]},
+                {"Fn::GetAtt":["VPC","Outputs.SubnetId2"]}
+            ]]},
+            "SecurityGroup": {"Fn::GetAtt":["VPC","Outputs.SecurityGroupId"]},
+            "InstanceType": {"Ref": "InstanceType"},
+            "AmiId": {"Ref": "AmiId"},
+            "SSHKey": {"Ref": "SSHKey"},
+            "InstanceProf": {"Fn::GetAtt":["IAMStack","Outputs.InstanceProfile"]},
+            "AZs": {"Fn::Join" : [",", [
+                {"Fn::GetAtt":["VPC","Outputs.SubnetAZ"]},
+                {"Fn::GetAtt":["VPC","Outputs.SubnetAZ2"]}
+            ]]},
+            "ELBSecurityGroup": {"Fn::GetAtt":["VPC","Outputs.ELBSecurityGroupId"]}
+          }
+        }
+
+      }
+
+    },
+
+    "Outputs": {
+      "EC2ApplicationPublicIP": {
+        "Value": {"Fn::GetAtt":["EC2Application", "Outputs.ELBPublicIP"]}
+      },
+      "EC2ApplicationURL": {
+        "Value": {"Fn::GetAtt":["EC2Application", "Outputs.SiteURL"]}
+      }
+    }         
+}

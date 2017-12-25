@@ -1,0 +1,36 @@
+# List all s3 buckets
+aws s3 ls --profile=admin
+
+# Update cloudformation child json configuration i S3 bucket
+aws s3 cp hw-ec2.template s3://naumenko-hm-cf --profile=admin
+aws s3 cp hw-iam.template s3://naumenko-hm-cf --profile=admin
+aws s3 cp hw-vpc.template s3://naumenko-hm-cf --profile=admin
+aws s3 cp hw-s3-static-server.template s3://naumenko-hm-cf --profile=admin
+
+
+
+# Delete stack	
+aws cloudformation delete-stack \
+    --profile=admin \
+    --stack-name HomeworkStack \
+    --region us-east-1
+
+# Create stack (you should wait until stack with same name is deleted)
+aws cloudformation create-stack \
+	--profile=admin \
+	--region us-east-1 \
+	--stack-name=HomeworkStack \
+	--template-body=./hw-app.template \
+	--parameters \
+	ParameterKey=S3BucketName,ParameterValue=naumenko-hm-cf \
+	ParameterKey=SSHKey,ParameterValue=HomeworkKeyPair  \
+	ParameterKey=AmiId,ParameterValue=ami-55ef662f   \
+	--capabilities="CAPABILITY_NAMED_IAM"
+
+# connect to instance
+ssh ec2-user@34.201.49.106 -i HomeworkKeyPair.pem
+
+# inside you can check that s3 is available
+aws s3 ls s3://naumenko-hm-site
+
+sudo aws s3 sync  s3://naumenko-hm-images .
